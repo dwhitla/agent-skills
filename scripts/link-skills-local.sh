@@ -16,22 +16,36 @@ set -euo pipefail
 #   - prunes links left behind by skills that were renamed or removed
 #   - --dry-run, and per-bucket excludes
 #
+# Excludes `deprecated` and `in-progress` by default: in-progress skills are
+# beta and upstream does not ship them in its plugin either. Pass
+# `--include in-progress` for a run that links them.
+#
 # Usage:
-#   scripts/link-skills-local.sh [--dry-run] [--exclude BUCKET]... [--dest DIR]
+#   scripts/link-skills-local.sh [--dry-run] [--exclude BUCKET]...
+#                                [--include BUCKET]... [--dest DIR]
 #
 # Written for bash 3.2 (macOS /bin/bash): no associative arrays, no mapfile.
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 DEST="${SKILLS_DEST:-$HOME/.claude/skills}"
 DRY_RUN=false
-EXCLUDES="deprecated"
+EXCLUDES="deprecated in-progress"
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) DRY_RUN=true; shift ;;
     --exclude) EXCLUDES="$EXCLUDES $2"; shift 2 ;;
+    --include)
+      kept=""
+      for bucket in $EXCLUDES; do
+        [ "$bucket" = "$2" ] || kept="$kept $bucket"
+      done
+      EXCLUDES="${kept# }"
+      shift 2
+      ;;
     --dest) DEST="$2"; shift 2 ;;
-    -h|--help) sed -n '6,23p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    # Print the header block, whatever length it grows to.
+    -h|--help) awk '/^#!/ {next} /^#/ {sub(/^# ?/, ""); print; found=1; next} found {exit}' "$0"; exit 0 ;;
     *) echo "error: unknown argument: $1" >&2; exit 2 ;;
   esac
 done
